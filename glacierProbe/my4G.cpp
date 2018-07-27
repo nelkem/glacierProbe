@@ -1,3 +1,10 @@
+/*
+Author: Mitch Nelke
+Date: Thursday, July 26, 2018
+
+*/
+
+
 #include "my4G.h" //check this file for descriptions of functions
 
 my4G::my4G(){}; //nothing is different from the Wasp4G initialization.

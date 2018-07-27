@@ -16,12 +16,12 @@ readBME(temperature.val);
 
 ******************************************************************************************/
 
-#define DELAYTIME 20					//	milliseconds between sensor.ON and measurement
+#define DELAYTIME 	20					//	milliseconds between sensor.ON and measurement
 
-#define _BME 0							//	set to 1 if BME sensor is attached
-#define _SONIC 0						//	set to 1 if SONIC sensor is attached
-#define _PHYTOS 0						//	set to 1 if PHYTOS sensor is attached
-#define _SOLAR 0						//	set to 1 if SOLAR sensor is attached
+#define _BME 		0					//	set to 1 if BME sensor is attached
+#define _SONIC 		0					//	set to 1 if SONIC sensor is attached
+#define _PHYTOS 	0					//	set to 1 if PHYTOS sensor is attached
+#define _SOLAR 		0					//	set to 1 if SOLAR sensor is attached
 
 
 /*
@@ -29,18 +29,19 @@ readBME()
 
 Reads the BME280 temperature, humidity, and pressure sensor's measurements. Stores them as
 character arrays 10 bytes long, so they will have a few 0's in front of the actual value.
-The "values" parameter is just an array of three character arrays that the function stores
-the values in.
 */
 
 #if _BME == 1
 bme bme280(AGR_XTR_SOCKET_A);			//	initialize a bme object
 
-void readBME( char* values[3])			//	values is the array of char arrays to put data into
+
+void readBME(char* value1,				//	character arrays the function stores the measurements in
+			 char* value2, 				//	val1 is t, val2 is h, val3 is p
+			 char* value3)			
 {
-	memset( values[0], 0, sizeof(values[0]));	//	clears the array before storing data
-	memset( values[1], 0, sizeof(values[1]));
-	memset( values[2], 0, sizeof(values[2]));
+	memset( values1, 0, sizeof(values1));	//	clears the array before storing data
+	memset( values2, 0, sizeof(values2));
+	memset( values3, 0, sizeof(values3));
 
 //	start up the sensor, wait a bit, and then grab the t, h, and p readings as floats.
 	bme280.ON();
@@ -51,10 +52,10 @@ void readBME( char* values[3])			//	values is the array of char arrays to put da
 	bme280.OFF();
 
 //	convert the floats to 10-byte-wide, 3-decimal-place character arrays and store them in
-//	values array.
-	dtostrf(t, 10, 3, values[0]);
-	dtostrf(h, 10, 3, values[1]);
-	dtostrf(p, 10, 3, values[2]);
+//	the designated character arrays.
+	dtostrf(t, 10, 3, values1);
+	dtostrf(h, 10, 3, values2);
+	dtostrf(p, 10, 3, values3);
 }
 #endif
 
@@ -97,6 +98,7 @@ character array that the wetness value will be stored in.
 #if _PHYTOS == 1
 leafWetness phytos;						//	initialize a leafWetness object
 
+
 void readPhytos( char* value)			//	value is the char array that will store the wetness
 {
 	memset( value, 0, sizeof(value));	//	clears the array before storing data
@@ -125,6 +127,7 @@ character array that the radation value will be stored in.
 #if _SOLAR == 1
 Apogee_SQ110 solar(AGR_XTR_SOCKET_F);	//	initialize an Apogee_SQ110 object
 
+
 void readSolar( char* value)			//	value is the char array that will store the radation
 {
 	memset( value, 0, sizeof(value));	//	clears the array before storing data
@@ -140,4 +143,26 @@ void readSolar( char* value)			//	value is the char array that will store the ra
 	dtostrf(r, 10, 3, value);			//	convert the float to a character array aand store it in value
 }
 #endif
+
+
+void readAllSensors( keyvalue* dataArray [6]){
+	#if _BME
+	readBME(dataArray[0]->val, 
+			dataArray[1]->val, 
+			dataArray[2]->val);
+	#endif
+
+	#if _SONIC
+	readSonic(dataArray[3]->val);
+	#endif
+
+	#if _PHYTOS
+	readPhytos(dataArray[4]->val);
+	#endif
+
+	#if _SOLAR
+	readSolar(dataArray[5]->val);
+	#endif
+
+}
 
