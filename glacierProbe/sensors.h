@@ -1,5 +1,7 @@
-#pragma once							//	include guard
+#ifndef SENSORS_H
+#define SENSORS_H
 
+#include "header.h"
 /******************************************************************************************
 Sensors.h
 Author:	Mitch Nelke
@@ -16,12 +18,16 @@ readBME(temperature.val);
 
 ******************************************************************************************/
 
-#define DELAYTIME 	20					//	milliseconds between sensor.ON and measurement
+#define DELAYTIME 	300					//	milliseconds between sensor.ON and measurement
 
-#define _BME 		0					//	set to 1 if BME sensor is attached
-#define _SONIC 		0					//	set to 1 if SONIC sensor is attached
-#define _PHYTOS 	0					//	set to 1 if PHYTOS sensor is attached
-#define _SOLAR 		0					//	set to 1 if SOLAR sensor is attached
+#define _BME 		  1					//	set to 1 if BME sensor is attached
+#define _SONIC 		1					//	set to 1 if SONIC sensor is attached
+#define _PHYTOS 	1					//	set to 1 if PHYTOS sensor is attached
+#define _SOLAR 		1					//	set to 1 if SOLAR sensor is attached
+
+void readAllSensors( keyvalue*);
+void cleanString(char*, int);
+
 
 
 /*
@@ -37,15 +43,17 @@ bme bme280(AGR_XTR_SOCKET_A);			//	initialize a bme object
 
 void readBME(char* value1,				//	character arrays the function stores the measurements in
 			 char* value2, 				//	val1 is t, val2 is h, val3 is p
-			 char* value3)			
+			 char* value3,
+			 uint8_t size1,
+			 uint8_t size2,
+			 uint8_t size3)			
 {
-	memset( values1, 0, sizeof(values1));	//	clears the array before storing data
-	memset( values2, 0, sizeof(values2));
-	memset( values3, 0, sizeof(values3));
+	memset( value1, 0, size1);	//	clears the array before storing data
+	memset( value2, 0, size2);
+	memset( value3, 0, size3);
 
 //	start up the sensor, wait a bit, and then grab the t, h, and p readings as floats.
 	bme280.ON();
-	delay(DELAYTIME);
 	float t = bme280.getTemperature();
 	float h = bme280.getHumidity();
 	float p = bme280.getPressure();
@@ -53,9 +61,9 @@ void readBME(char* value1,				//	character arrays the function stores the measur
 
 //	convert the floats to 10-byte-wide, 3-decimal-place character arrays and store them in
 //	the designated character arrays.
-	dtostrf(t, 10, 3, values1);
-	dtostrf(h, 10, 3, values2);
-	dtostrf(p, 10, 3, values3);
+	dtostrf(t, 10, 3, value1);
+	dtostrf(h, 10, 3, value2);
+	dtostrf(p, 10, 3, value3);
 }
 #endif
 
@@ -71,13 +79,12 @@ a character array that the distance value will be stored in.
 #if _SONIC == 1
 ultrasound sonic(AGR_XTR_SOCKET_D);		//	initialize an ultrasound object
 
-void readSonic( char* value)			//	value is the char array that will store the distance
+void readSonic( char* value, uint8_t size)			//	value is the char array that will store the distance
 {			
-	memset( value, 0, sizeof(value));	//	clears the array before storing data
+	memset( value, 0, size);	//	clears the array before storing data
 
 //	start up the sensor, wait a bit, then grab the distance measurement as an unsigned integer
 	sonic.ON();
-	delay(DELAYTIME);
 	uint16_t d = sonic.getDistance();
 	sonic.OFF();
 
@@ -99,19 +106,18 @@ character array that the wetness value will be stored in.
 leafWetness phytos;						//	initialize a leafWetness object
 
 
-void readPhytos( char* value)			//	value is the char array that will store the wetness
+void readPhytos( char* value, uint8_t size)			//	value is the char array that will store the wetness
 {
-	memset( value, 0, sizeof(value));	//	clears the array before storing data
+	memset( value, 0, size);	//	clears the array before storing data
 
 //	start up the sensor, wait a bit, then take a measurement. The wetness is stored as a member of
 //	the object, rather than being returned.
 	phytos.ON();
-	delay(DELAYTIME);
 	phytos.read();
 	phytos.OFF();
 
 	float w = phytos.wetness;			//	grab the wetness from the member variable of the object
-	dtostrf(w, 10, 3, value)			//	convert the float to a character array and store it in value
+	dtostrf(w, 10, 3, value);			//	convert the float to a character array and store it in value
 }
 #endif
 
@@ -125,44 +131,82 @@ character array that the radation value will be stored in.
 */
 
 #if _SOLAR == 1
-Apogee_SQ110 solar(AGR_XTR_SOCKET_F);	//	initialize an Apogee_SQ110 object
+Apogee_SQ110 solar = Apogee_SQ110(AGR_XTR_SOCKET_F);	//	initialize an Apogee_SQ110 object
 
 
-void readSolar( char* value)			//	value is the char array that will store the radation
+void readSolar( char* value, uint8_t size)			//	value is the char array that will store the radation
 {
-	memset( value, 0, sizeof(value));	//	clears the array before storing data
+	memset( value, 0, size);	//	clears the array before storing data
 
 //	start up the sensor, wait a bit, then take a measurement. The radiation is stored as a member of
 //	the object, rather than being returned.
 	solar.ON();
-	delay(DELAYTIME);
 	solar.read();
 	solar.OFF();
 
-	float r = solar.radiation;			//	grab the radiation from the member variable of the object
+	float r = solar.radiationVoltage;			//	grab the radiation from the member variable of the object
 	dtostrf(r, 10, 3, value);			//	convert the float to a character array aand store it in value
 }
 #endif
 
 
-void readAllSensors( keyvalue* dataArray [6]){
+void readAllSensors( keyvalue dataArray [6]){
 	#if _BME
-	readBME(dataArray[0]->val, 
-			dataArray[1]->val, 
-			dataArray[2]->val);
+	readBME(dataArray[0].val, 
+			dataArray[1].val, 
+			dataArray[2].val,
+			sizeof(dataArray[0].val),
+			sizeof(dataArray[1].val),
+			sizeof(dataArray[2].val));
 	#endif
 
 	#if _SONIC
-	readSonic(dataArray[3]->val);
+	readSonic(dataArray[3].val,sizeof(dataArray[3].val));
 	#endif
 
 	#if _PHYTOS
-	readPhytos(dataArray[4]->val);
+	readPhytos(dataArray[4].val, sizeof(dataArray[4].val));
 	#endif
 
 	#if _SOLAR
-	readSolar(dataArray[5]->val);
+	readSolar(dataArray[5].val, sizeof(dataArray[5].val));
 	#endif
 
+  for(int i = 0; i<6; i++)
+  {
+    cleanString(dataArray[i].val, sizeof(dataArray[i].val));
+  }
+
 }
+
+void cleanString(char* str, int size)
+{
+  char newStr [size];
+  memcpy(newStr,0,sizeof(newStr));
+
+  
+  uint8_t index = 0;
+  bool started = false;
+  
+  for(int i = 0; i<size; i++)
+  {
+    if(started == false){
+      if(str[i] != ' '){
+        started = true;
+        newStr[index] = str[i];
+        index++;
+      }
+    }
+    else
+    {
+      newStr[index] = str[i];
+      index++;
+    }
+  }
+  memcpy(str,0,size);
+  
+  strcpy(str,newStr);
+}
+
+#endif
 

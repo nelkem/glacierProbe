@@ -1,6 +1,7 @@
- #pragma once
-
- #include "Wasp4G.h"
+ #ifndef MY4G_H
+ #define MY4G_H
+ 
+ #include "structures.h"
 /*
 Author: Mitch Nelke
 Date: Thursday, July 26, 2018
@@ -28,12 +29,6 @@ onboard SD card and extracted when it is time to send data over 4G.
 
 #define DEBUG_MY4G	1
 
-struct keyvalue {
-	const static uint8_t KEYVAL_STRING_SIZE = 10;
-	char key [KEYVAL_STRING_SIZE];	//name
-	char val [KEYVAL_STRING_SIZE];	//data
-}
-
 
 /*
 Simple class for some custom functions for the 4G class, rather than inserting them directly
@@ -53,33 +48,31 @@ Takes a command character array/string literal and a couple desired answers and 
 the SIM card. This only works with AT commands in the style of "AT+CREG?" or "AT+CREG=0". More
 information on how to use this function is available in the documentation.
 */
-	uint8_t sendMyCommand(*char command);
+	uint8_t sendMyCommand(char* command);
 
-	uint8_t sendMyCommand(*char command,
-						*char ans1);
+	uint8_t sendMyCommand(char* command,
+						char* ans1);
 
-	uint8_t sendMyCommand(*char command,
+	uint8_t sendMyCommand(char* command,
 						bool print,
-						*char ans1);
+						char* ans1);
 
-	uint8_t sendMyCommand(*char command,// AT command to send to SIM
-						bool print;		// TRUE for printing to USB
-						*char ans1, 	// Desired answer 1, wi,ll return 1 if this is the response
-						*char ans2); 	// Desired answer 2, will return 2 if this is the response
+	uint8_t sendMyCommand(char* command,// AT command to send to SIM
+						bool print,		// TRUE for printing to USB
+						char* ans1, 	// Desired answer 1, wi,ll return 1 if this is the response
+						char* ans2); 	// Desired answer 2, will return 2 if this is the response
 
 
 /*
 Takes a host url, a port, a resource string, and an array of keyvalue objects and "Dweets" them.
 Not really useful for bulk data but nice as a demo and could be reused for other FTP servers.
 */
-	uint8_t sendDweet(	char* url, 			//just the host
-						uint16_t port 		// usually 80
-						char* resource, 	// the location of the host's site the data is going
-						(keyvalue*)* data, 	// array of an array of keyvalue pairs.
-						uint8_t numPairs	// number of pairs in the data array
-						);
+	uint8_t sendDweet(  uint16_t port, 		        // usually 80
+						          char* resource, 	        // the location of the host's site the data is going
+						          keyvalue** data,        // array of keyvalue pointers.
+						          uint8_t numPairs);	        // number of pairs in the data array
 };
 
-
+#endif
 
 

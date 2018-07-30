@@ -1,5 +1,5 @@
-#pragma once
-
+#ifndef STRUCTURES_H
+#define STRUCTURES_H
 /*
 structures.h
 Author: Mitch Nelke
@@ -16,3 +16,5 @@ struct keyvalue {
 };
 
 keyvalue* currData [6];
+
+#endif
