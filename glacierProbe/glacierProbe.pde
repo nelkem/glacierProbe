@@ -1,27 +1,19 @@
 #include "header.h"
-
-keyvalue currData[] = {keyvalue("temperature"),
-                       keyvalue("humidity"),
-                       keyvalue("pressure"),
-                       keyvalue("sonic"),
-                       keyvalue("wetness"),
-                       keyvalue("solar")};
-                       
-my4G comms;
+           
+my4G comms("gprs.swisscom.ch", "gprs", "gprs");
 
 void setup(){
   USB.ON();
 }
 
 void loop(){
+  uint32_t firstTime = millis();
+  updateTime(&dataInterval, currData[KV_SECONDS].val);
   readAllSensors(currData);
-  USB.printf("\nData:\n");
-  for(int i=0; i<6; i++){
-  	USB.printf("%s = %s.\n",currData[i].key, currData[i].val);
-  }
-  char name [] = "glacierProbe";
-  uint8_t a = comms.sendDweet(80, name, sizeof(name), currData, 6);
-  USB.printf("\nError: %u\n", a);
-  delay(60000);
+  uint8_t ans = writeDataSet(currData, 7);
+  USB.printf("\n\nAns: %u.\n\n",ans);
+  uint32_t secondTime = millis();
+  USB.printf("\nIt took %u milliseconds.\n", secondTime - firstTime);
+  delay(dataInterval * 1000);
 }
 

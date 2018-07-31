@@ -41,7 +41,9 @@ class my4G : public Wasp4G
 public:
 
 
-	my4G(); // constructor
+	my4G(	char* apn,			//	apn name
+			char* login,		//	apn login
+			char* password);	//	apn password
 
 /*
 SendCommand()
@@ -68,11 +70,25 @@ information on how to use this function is available in the documentation.
 Takes a host url, a port, a resource string, and an array of keyvalue objects and "Dweets" them.
 Not really useful for bulk data but nice as a demo and could be reused for other FTP servers.
 */
-	uint8_t sendDweet(  uint16_t port, 		        // usually 80
-						          char* name, 	        // the location of the host's site the data is going
-						          uint8_t size,
-						          keyvalue* data,        // array of keyvalue pointers.
-						          uint8_t numPairs);	        // number of pairs in the data array
+	uint8_t sendDweet(  uint16_t port,		   // usually 80
+						char* name, 	       // the location of the host's site the data is going
+						uint8_t size,
+						keyvalue* data,        // array of keyvalue pointers.
+						uint8_t numPairs);	   // number of pairs in the data array
+
+
+/*
+Post FTP
+Takes ftp settings, the filename stored on the SD card, and the server file to post to. Then sends it over.
+*/
+
+	uint8_t postFTP(	char* ftp_server,
+						uint8_t ftp_port,
+						char* ftp_user,
+						char* ftp_pass,
+						char* SD_filename,
+						char* serverFile);
+
 };
 
 #endif

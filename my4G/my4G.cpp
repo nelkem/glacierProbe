@@ -11,11 +11,8 @@
 #include "my4G.h" //check this file for descriptions of functions
 #include <inttypes.h>
 
-my4G::my4G() 
+my4G::my4G(char* apn, char* login, char* password) 
 {
-  char apn[] = "gprs.swisscom.ch";
-  char login [] = "gprs";
-  char password [] = "gprs";
   this->set_APN(apn, login, password);
 }; //nothing is different from the Wasp4G initialization.
 
@@ -134,8 +131,8 @@ uint8_t my4G::sendDweet(	uint16_t port,
     //Insert the key string into dataString
 
     uint8_t charIndex = 0;					            //	current character index in the key
-    char* k = data[index].key;				          //	pointer to first character in key
-    uint8_t strSize = sizeof(data[index].key);
+    char* k = data[pair].key;				          //	pointer to first character in key
+    uint8_t strSize = sizeof(data[pair].key);
     while ( 	k[charIndex] != '\0' &&			      //	while the current char is not a null terminator
               charIndex <= strSize &&		        //	and charIndex is not larger than the length of the string
               charIndex < DATALENGTH)				          //	and charIndex is not equal to the max size of dataString
@@ -151,8 +148,8 @@ uint8_t my4G::sendDweet(	uint16_t port,
     //Then insert the val string into dataString
 
     charIndex = 0;
-    char* v = (data[index].val);
-    strSize = sizeof(data[index].val)
+    char* v = (data[pair].val);
+    strSize = sizeof(data[pair].val);
     while (	v[charIndex] != '\0' &&
             charIndex <= strSize &&
             charIndex < DATALENGTH)
@@ -162,9 +159,9 @@ uint8_t my4G::sendDweet(	uint16_t port,
       charIndex++;
     }
 
-    index++;								                 //	next keyvalue pair
+    pair++;								                 //	next keyvalue pair
 
-    if (index <= numPairs) {					       //	if there is another keyvalue pair
+    if (pair <= numPairs) {					       //	if there is another keyvalue pair
       dataString[len] = '&';				         //	insert separator between keyvalue pairs.
       len++;
     }
@@ -190,9 +187,69 @@ uint8_t my4G::sendDweet(	uint16_t port,
                         resource,			      //	resource
                         dataString);		    //	data
 
-  return postError;							            //	between 0 and 27. 0 means OK.
   this->OFF();
+  return postError;							            //	between 0 and 27. 0 means OK.
+  
 
+}
+
+/**************************************************************************************************************
+Post to FTP
+Parameters:
+
+Returns:
+***************************************************************************************************************/
+
+uint8_t my4G::postFTP(char* ftp_server,
+              uint8_t ftp_port,
+              char* ftp_user,
+              char* ftp_pass,
+              char* SD_file,
+              char* serverFile)
+{
+  uint8_t error = this->ftpOpenSession(ftp_server,
+                                      ftp_port,
+                                      ftp_user,
+                                      ftp_pass);
+
+  if(error == 0)
+  {
+    USB.println(F("FTP open session OK"));
+    uint32_t previous = millis();
+
+    error = this->ftpUpload(serverFile, SD_file);
+    if(error == 0)
+    {
+      USB.print(F("2.2. Uploading SD file to FTP server done! "));
+      USB.print(F("Upload time: "));
+      USB.print((millis() - previous) / 1000, DEC);
+      USB.println(F(" s"));
+    }
+    else
+    {
+      USB.print(F("2.2. Error calling 'ftpUpload' function. Error: "));
+      USB.println(error, DEC);
+    }
+
+    error = this->ftpCloseSession();
+
+    if (error == 0)
+    {
+      USB.println(F("2.3. FTP close session OK"));
+    }
+    else
+    {
+      USB.print(F("2.3. Error calling 'ftpCloseSession' function. error: "));
+      USB.println(error, DEC);
+      USB.print(F("CMEE error: "));
+      USB.println(_4G._errorCode, DEC);
+    }
+  }
+  else
+  {
+    USB.print(F( "2.1. FTP connection error: "));
+    USB.println(error, DEC);
+  }
 }
 
 

@@ -41,16 +41,14 @@ character arrays 10 bytes long, so they will have a few 0's in front of the actu
 bme bme280(AGR_XTR_SOCKET_A);			//	initialize a bme object
 
 
-void readBME(char* value1,				//	character arrays the function stores the measurements in
-			 char* value2, 				//	val1 is t, val2 is h, val3 is p
-			 char* value3,
-			 uint8_t size1,
-			 uint8_t size2,
-			 uint8_t size3)			
+void readBME( char* value1,				//	character arrays the function stores the measurements in
+			        char* value2, 				//	val1 is t, val2 is h, val3 is p
+			        char* value3,
+			        uint8_t size)		
 {
-	memset( value1, 0, size1);	//	clears the array before storing data
-	memset( value2, 0, size2);
-	memset( value3, 0, size3);
+	memset( value1, 0, size);	//	clears the array before storing data
+	memset( value2, 0, size);
+	memset( value3, 0, size);
 
 //	start up the sensor, wait a bit, and then grab the t, h, and p readings as floats.
 	bme280.ON();
@@ -150,26 +148,27 @@ void readSolar( char* value, uint8_t size)			//	value is the char array that wil
 #endif
 
 
-void readAllSensors( keyvalue dataArray [6]){
+void readAllSensors( keyvalue* dataArray){
 	#if _BME
-	readBME(dataArray[0].val, 
-			dataArray[1].val, 
-			dataArray[2].val,
-			sizeof(dataArray[0].val),
-			sizeof(dataArray[1].val),
-			sizeof(dataArray[2].val));
+	readBME(dataArray[KV_TEMPERATURE].val, 
+			    dataArray[KV_HUMIDITY].val, 
+			    dataArray[KV_PRESSURE].val,
+			    dataArray[KV_TEMPERATURE].KEYVAL_STRING_SIZE);
 	#endif
 
 	#if _SONIC
-	readSonic(dataArray[3].val,sizeof(dataArray[3].val));
+	readSonic(  dataArray[KV_SONIC].val,
+	            dataArray[KV_SONIC].KEYVAL_STRING_SIZE);
 	#endif
 
 	#if _PHYTOS
-	readPhytos(dataArray[4].val, sizeof(dataArray[4].val));
+	readPhytos( dataArray[KV_WETNESS].val,
+	            dataArray[KV_WETNESS].KEYVAL_STRING_SIZE);
 	#endif
 
 	#if _SOLAR
-	readSolar(dataArray[5].val, sizeof(dataArray[5].val));
+	readSolar(  dataArray[KV_SOLAR].val,
+	            dataArray[KV_SOLAR].KEYVAL_STRING_SIZE);
 	#endif
 
   for(int i = 0; i<6; i++)
