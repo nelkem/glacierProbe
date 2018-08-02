@@ -57,11 +57,9 @@ information on how to use this function is available in the documentation.
 						char* ans1);
 
 	uint8_t sendMyCommand(char* command,
-						bool print,
 						char* ans1);
 
 	uint8_t sendMyCommand(char* command,// AT command to send to SIM
-						bool print,		// TRUE for printing to USB
 						char* ans1, 	// Desired answer 1, wi,ll return 1 if this is the response
 						char* ans2); 	// Desired answer 2, will return 2 if this is the response
 
@@ -88,6 +86,8 @@ Takes ftp settings, the filename stored on the SD card, and the server file to p
 						char* ftp_pass,
 						char* SD_filename,
 						char* serverFile);
+
+	void serialCommandMode();
 
 };
 

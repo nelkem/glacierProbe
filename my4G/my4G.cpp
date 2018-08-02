@@ -16,10 +16,25 @@ my4G::my4G(char* apn, char* login, char* password)
   this->set_APN(apn, login, password);
 }; //nothing is different from the Wasp4G initialization.
 
+
+
+/**************************************************************************************************************
+SendMyCommand()
+Takes an AT command string and up to two desired answers and sends it to the SIM.
+Parameters:
+- Char* command: the AT command to send to the SIM, formatted as a string such as "AT+CREG?"
+- char* ans1: desired response from SIM
+- char* ans2: desired response from SIM
+Returns:
+- 0 if SIM doesn't respond with ans1 or ans2
+- 1 if SIM responds with ans1
+- 2 if SIM responds with ans2
+- 3 if SIM doesn't respond at all
+***************************************************************************************************************/
+
 uint8_t my4G::sendMyCommand(char* command)
 {
   this->sendMyCommand(command,	// character array representing the AT command
-                      true,		  // print out messages to the serial monitor
                       NULL,		  // no desired answer1
                       NULL);		// no desired answer2
 }
@@ -28,38 +43,38 @@ uint8_t my4G::sendMyCommand(char* command,
                             char* ans1)
 {
   this->sendMyCommand(command,	//character array representing the AT command
-                      true,		  //print out messages to the serial monitor
                       ans1,		  //desired answer1
                       NULL);		//no desired answer2
 }
 
 uint8_t my4G::sendMyCommand(char* command,
-                            bool print,
-                            char* ans1) {
-  this->sendMyCommand(	command,	//character array representing the AT command
-                      print,		//print out messages to the serial monitor
+                            char* ans1)
+{
+  this->sendMyCommand(command,	//character array representing the AT command
                       ans1,		//desired answer1
                       NULL);		//no desired answer2
 }
 
 uint8_t my4G::sendMyCommand(char* command,
-                            bool print,
                             char* ans1,
-                            char* ans2) {
+                            char* ans2)
+{
   uint8_t answer;
 
-  if (print) USB.printf("Sending %s to SIM....\n", command);
+  USB.printf("Sending %s to SIM....\n", command);
 
   answer = sendCommand(command, ans1, ans2);               //use UART to send the AT command to the SIM
 
-  if (print)
+
+  USB.printf("Response:\t");
+  for (int i = 0; i < 512; i++) 
   {
-    USB.printf("Response:\t");
-    for (int i = 0; i < 512; i++) USB.print((char)_buffer[i]); //print out SIM response
-    USB.println();
+    USB.print((char)_buffer[i]); //print out SIM response
   }
+  USB.println();
+
   if (answer == 0) {
-    if (sizeof(_buffer)) return 3; 	                      //if there was any response at all.
+    if (_buffer[1] != 0) return 3; 	                      //if there was any response at all.
     else return 0; 					                              //probably an invalid command or the module is off.
   }
 
@@ -109,7 +124,7 @@ uint8_t my4G::sendDweet(	uint16_t port,
 
   else {                                                 // If the name was too long, say so and don't continue
     #if DEBUG_MY4G
-      USB.println("Device name is too long.");
+      USB.println(F("Device name is too long."));
     #endif
     return 128;
   }
@@ -167,14 +182,14 @@ uint8_t my4G::sendDweet(	uint16_t port,
     }
   }
   if(len>256){
-    USB.println("Data too long.");
+    USB.println(F("Data too long."));
     return 129;
   }
 
   /*
     Now we can Dweet the data by calling Wasp4G's function for posting http urls.
   */
-  USB.println("POSTING");
+  USB.println(F("POSTING"));
   USB.printf("Resource: %s,\tdataString: %s\n",resource,dataString);
   char host [] = "dweet.io";
   uint8_t postError;
@@ -207,6 +222,7 @@ uint8_t my4G::postFTP(char* ftp_server,
               char* SD_file,
               char* serverFile)
 {
+  this->ON();
   uint8_t error = this->ftpOpenSession(ftp_server,
                                       ftp_port,
                                       ftp_user,
@@ -232,10 +248,12 @@ uint8_t my4G::postFTP(char* ftp_server,
     }
 
     error = this->ftpCloseSession();
+    this->OFF();
 
     if (error == 0)
     {
       USB.println(F("2.3. FTP close session OK"));
+      return 1;
     }
     else
     {
@@ -243,15 +261,53 @@ uint8_t my4G::postFTP(char* ftp_server,
       USB.println(error, DEC);
       USB.print(F("CMEE error: "));
       USB.println(_4G._errorCode, DEC);
+      return 0;
     }
   }
   else
   {
     USB.print(F( "2.1. FTP connection error: "));
     USB.println(error, DEC);
+    return 0;
   }
 }
 
+/**************************************************************************************************************
+serialCommandMode()
+Waits for a serial command and then sends it to the SIM card, printing the response. The user can enter 'q'
+or 'Q' to quit the loop, but otherwise it will repeat indefinitely.
+
+Parameters: none
+Returns: none
+***************************************************************************************************************/
+
+void my4G::serialCommandMode(){
+  char cmd_buffer [50] = {};
+  uint8_t buff_index = 0;
+  
+  while(true)                                                 //  loop until we force an exit
+  {
+    USB.print(F("Enter 'q' to quit"));
+    USB.print(F("COMMAND: "));
+
+    memcpy(cmd_buffer,0,sizeof(cmd_buffer));                  //  clear the command buffer
+    while(USB.available() && buff_index < sizeof(cmd_buffer)) //  if there are characters left in the CMD
+    {
+      cmd_buffer[buff_index] = USB.read();                    //  copy the byte to the command buffer
+
+      if( cmd_buffer[buff_index] == 'q' ||                    //  exit conditions, return from function
+          cmd_buffer[buff_index] == 'Q')
+      {
+        return;
+      }
+
+      buff_index++;
+    }
+    USB.println(cmd_buffer);
+
+    this->sendMyCommand(cmd_buffer);
+  }
+}
 
 
 

@@ -3,41 +3,100 @@
 
 #include "header.h"
 
-void setFileName(char filename [16])
+
+/*
+setFileNames()
+Updates the SD_filename to correspond with the current date, then updates FTP_filename's filename by
+appending it after the base directory
+
+returns: 
+- 0 if directory is successfully saved
+- 1 if directory is not successfully saved
+
+ */
+
+uint8_t setFileNames(char* SD_filename,                    // name of file storing data on SD         
+                    uint8_t SD_len,                       //  length of the name of the file
+                    char* FTP_filename,                   //  name of file and directory for FTP server
+                    uint8_t FTP_length)                   //  length of the FTP server directory
 {
-  sprintf(filename, "%.2u-%.2u-%.2u.csv", RTC.year,RTC.month,RTC.day);
+
+//  update the SD filename based on the current date and format settings
+  switch(SD_FILEFORMAT){
+    case(DAY_MONTH_YEAR):
+      sprintf_P(SD_filename, PSTR("%.2u-%.2u-%.2u.csv"), RTC.day,RTC.month,RTC.year);
+      break;
+    case(YEAR_MONTH_DAY):
+      sprintf_P(SD_filename, PSTR("%.2u-%.2u-%.2u.csv"), RTC.year,RTC.month,RTC.day);   
+      break;
+    case(SINGLE_FILE):
+      strcpy(SD_filename, "SENSOR_DATA");
+      break;
+  }
+  
+  if(FTP_length > sizeof(FTP_DIR) + SD_len - 1)             //  check for name overflow
+  {
+    //  append the filename to the directory for the FTP server
+    strcpy(FTP_filename, FTP_DIR);
+    strcpy(FTP_filename + sizeof(FTP_DIR) - 1, SD_filename);
+
+    #if GLACIERPROBE_DEBUG == 1
+      USB.println(F("Directory successfully created"));
+    #endif
+    return 0;
+  }
+  
+  #if GLACIERPROBE_DEBUG == 1
+    USB.println(F("not enough space in FTP_filename"));
+  #endif
+  return 1;
 }
 
-uint8_t writeDataSet(keyvalue* kvs, uint8_t numPairs)
+/*
+writeDataSet()
+Formats a large characterarray dataString representing the key value pairs. Keys are separated from their
+values with equal signs, keyval pairs are separated from each other with commas, and cyles of measurements are
+separated with semicolons.
+
+returns: 
+- 0 if dataSet is successfully saved to SD file
+- 1 if directory is not successfully saved
+- 2 if SD card fails to initialize
+- 3 if SD failed to append data to file
+- 4 if SD failed to close directory
+*/
+
+uint8_t writeDataSet(keyvalue* kvs, uint8_t numPairs, char* filename)
 {
-  const uint8_t DATASIZE = 255;
+  const uint8_t DATASIZE = 128;                 //  max length of the data string
 
   //  Step 1:
   //  set up the datastring to be written to the file
-  char dataString [DATASIZE];
-  memset(dataString, 0, DATASIZE);
-  uint16_t len = 0;
+  char dataString [DATASIZE] = {};
+  uint8_t len = 0;
   
   for(int pairInd = 0; pairInd < numPairs; pairInd++)
   {
     //append the key string to the datastring
     uint8_t size = sizeof(kvs[pairInd].key);
-    USB.printf("Size of key%d: %u.\n",pairInd,size);
     char* k = kvs[pairInd].key;
-    uint8_t index = 0;
-    if(len + size < DATASIZE){
-      while( index < size && k[index] != 0){
+    uint8_t index = 0;                          //  index of character array 'k'
+    
+    if(len + size < DATASIZE){                  //  if the key won't overflow the datastring
+      while( index < size && k[index] != 0){    //  making sure indices are in bounds and the character is not null
         dataString[len] = k[index];
         len++;
         index++;
       }
     }
     else{
-      USB.println(F("data string overflow."));
-      return 0;
+      #if GLACIERPROBE_DEBUG == 1
+        USB.println(F("data string overflow."));
+      #endif
+      return 1;
     }
 
-    dataString[len] = '=';
+    dataString[len] = '=';                      // separate the key from the value
     len++;
 
     //append the val string to the datastring
@@ -52,80 +111,110 @@ uint8_t writeDataSet(keyvalue* kvs, uint8_t numPairs)
       }
     }
     else{
-      USB.println(F("data string overflow."));
-      return 0;
+      #if GLACIERPROBE_DEBUG == 1
+        USB.println(F("data string overflow."));
+      #endif
+      return 1;
     }
-    USB.printf("PairIndex: %u.\n",pairInd);
-    if(pairInd < numPairs-1)
+    
+    if(pairInd < numPairs-1)                  //  if it isn't the last keyvalue, separate with a comma
     {
-      
       dataString[len] = ',';
       len++;
     }
   }
-  if(len < DATASIZE-1)
-  {
-  dataString[len] = ';';
-  len++;
-  dataString[len] = 0;
-  len++;
-  }
-  else
-  {
-    USB.println(F("data string too long."));
-    return 0;
-  }
   
+  if(len < DATASIZE-1)                        //  if doing so won't overflow the string
+  {
+  dataString[len] = ';';                      //  add a semicolon to delineate successive measurement cycles
+  len++;
+  dataString[len] = 0;                        //  terminate the string
+  len++;
+  }
+  else                                        //  too many characters to fit in dataString
+  {
+    #if GLACIERPROBE_DEBUG == 1
+      USB.println(F("data string too long."));
+    #endif
+    return 1;
+  }
 
-  for(int i = 0; i<sizeof(dataString); i++){
-    USB.print(dataString[i]);
-  }
-  //  Step 3:
-  //  Get the filename
-  if(!SD.ON())
+  // print out the dataString to verify its format
+  #if GLACIERPROBE_DEBUG == 1
+    for(int i = 0; i<sizeof(dataString); i++){
+      USB.print(dataString[i]);
+    }
+  #endif
+
+
+  //  Step 2: 
+  //  initialize the SD card
+  if(!SD.ON())                                //  if the SD card fails to turn on
   {
-    USB.println(F("Failed to init SD"));
-    return 0;
+    #if GLACIERPROBE_DEBUG == 1
+      USB.println(F("Failed to init SD"));
+    #endif
+    return 2;
   }
+
+  #if GLACIERPROBE_DEBUG == 1
+    USB.println(filename);
+  #endif
   
-  char fname [64];
-  setFileName(fname);
-  USB.println(fname);
+  //  Step 3:
+  //  Check if file exists, if not then create it, open the file
+  if(SD.isFile(filename)==-1)
+  {
+    SD.create(filename);
+    #if GLACIERPROBE_DEBUG == 1
+      USB.println(F("File created"));
+    #endif
+  }
 
   //  Step 4:
-  //  Check if file exists, if not then create it, open the file
-  if(SD.isFile(fname)==-1)
+  //  Append dataString to the end of the file on a new line.
+  if(SD.appendln(filename, dataString))
   {
-    SD.create(fname);
-    USB.println(F("file created"));
-  }
-  USB.printf("SDisFile: %d.\n",SD.isFile(fname));
-
-  //  Step 5:
-  //  Append the datastring to the end of the file on a new line.
-  if(SD.appendln(fname, dataString))
-  {
-    USB.println(F("SD append success"));
+    #if GLACIERPROBE_DEBUG == 1
+      USB.println(F("SD append success"));
+    #endif
   }
   else
   {
-    USB.println(F("SD append failure"));
-    for(int i=0; i<sizeof(SD.buffer); i++){
-      USB.print(SD.buffer[i]);
-    }
+    #if GLACIERPROBE_DEBUG == 1
+      USB.println(F("SD append failure"));
+      for(int i=0; i<sizeof(SD.buffer); i++)            // print out the error message stored in the SD object
+      {
+        USB.print(SD.buffer[i]);
+      }
+    #endif
+    
     SD.OFF();
-    return 0;
+    return 3;
   }
 
-  SD.showFile(fname);
-  SdFile* currDir = &SD.currentDir;
-  uint8_t error = SD.closeFile(currDir);
+  //  Step 5:
+  //  Close the file and turn off the SD card
+  SdFile* currDir = &SD.currentDir;                     //  the directory to the file is stored as an SdFile object
+  uint8_t error = SD.closeFile(currDir);                //  closeFile takes the SdFile object, not the character array
+  
+  
   if(error != 1)
   {
-    USB.println(F("Failed to close directory"));
+    #if GLACIERPROBE_DEBUG == 1
+      USB.println(F("Failed to close directory"));
+    #endif
+
+    return 4;
   }
-  SD.OFF();
-  return 1;
+  
+  SD.OFF();                                             //  turn of the SD while we don't use it
+
+  #if GLACIERPROBE_DEBUG == 1
+    USB.println(F("SD write completed, directory closed"));
+  #endif
+  
+  return 0;
 }
 
 /*
@@ -143,7 +232,7 @@ Returns:
 - 1 if the date changed
  */
  
-bool updateTime(uint16_t* interval, char* seconds){
+bool updateTimes(char* seconds, char wtoStr [12]){
   
   uint32_t lastTime = RTC.hour*3600 + RTC.minute*60 + RTC.second; //  previous seconds of the day
   uint8_t lastDay = RTC.day;
@@ -153,19 +242,17 @@ bool updateTime(uint16_t* interval, char* seconds){
   //get the new time
   uint32_t currentTime = RTC.hour*3600 + RTC.minute*60 + RTC.second;
   sprintf(seconds, "%u", currentTime);  //  5 chars max, update the seconds character array
+
+  //update the wakeTime interval
+  timestamp_t wto;
+  RTC.breakTimeOffset(DATA_INTERVAL, &wto);
+  
+  sprintf_P(wtoStr, PSTR("%.2u:%.2u:%.2u:%.2u"), wto.date, wto.hour, wto.minute, wto.second);
   
   if(RTC.day != lastDay){               //  if the day has changed, the seconds are going to be off anyways
     return 1;                           //  so just return 1 and don't update the interval time
   }
 
-  //  if there is a difference between the desired interval and the actual interval, update the time between
-  //  taking samples.
-  if( (currentTime - lastTime) != DATA_INTERVAL )
-  {
-    *interval = *interval - ( (int)(currentTime - lastTime) - DATA_INTERVAL );
-  }
-
-  
   return 0;                              // the day didn't change
   
 }

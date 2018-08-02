@@ -18,15 +18,8 @@ readBME(temperature.val);
 
 ******************************************************************************************/
 
-#define DELAYTIME 	300					//	milliseconds between sensor.ON and measurement
-
-#define _BME 		  1					//	set to 1 if BME sensor is attached
-#define _SONIC 		1					//	set to 1 if SONIC sensor is attached
-#define _PHYTOS 	1					//	set to 1 if PHYTOS sensor is attached
-#define _SOLAR 		1					//	set to 1 if SOLAR sensor is attached
-
 void readAllSensors( keyvalue*);
-void cleanString(char*, int);
+void cleanString(char*, uint8_t);
 
 
 
@@ -75,11 +68,11 @@ a character array that the distance value will be stored in.
 */
 
 #if _SONIC == 1
-ultrasound sonic(AGR_XTR_SOCKET_D);		//	initialize an ultrasound object
+ultrasound sonic(AGR_XTR_SOCKET_D);		          //	initialize an ultrasound object
 
 void readSonic( char* value, uint8_t size)			//	value is the char array that will store the distance
 {			
-	memset( value, 0, size);	//	clears the array before storing data
+	memset( value, 0, size);	                    //	clears the array before storing data
 
 //	start up the sensor, wait a bit, then grab the distance measurement as an unsigned integer
 	sonic.ON();
@@ -178,11 +171,15 @@ void readAllSensors( keyvalue* dataArray){
 
 }
 
-void cleanString(char* str, int size)
-{
-  char newStr [size];
-  memcpy(newStr,0,sizeof(newStr));
+/*
+cleanString()
 
+Takes a character array and its size and replaces it with a version that doesn't include any spaces in front of it.
+*/
+
+void cleanString(char* str, uint8_t size)
+{
+  char newStr [size] = {};
   
   uint8_t index = 0;
   bool started = false;
