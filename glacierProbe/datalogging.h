@@ -218,21 +218,22 @@ uint8_t writeDataSet(keyvalue* kvs, uint8_t numPairs, char* filename)
 }
 
 /*
-checkTime()
+updateTimes()
 Updates the data interval dynamically, so if the interval is supposed to be 60 seconds but
 it has been 62 seconds since the last cycle then it will reduce the interval to 58. Also
 updates the seconds variable. Also checks the date to see if it has changed, and if so returns
 1 to indicate that the file should transmitted and a new file should be created.
 
 Parameters:
-- uint16_t interval: the active data interval based on the constant user parameter.
 - uint16_t seconds: the timestamp in seconds
+- char wtoStr[12]: character array representing the wakeTimeOffset for setting the RTC alarm.
 Returns:
 - 0 if the date is the same
 - 1 if the date changed
  */
  
-bool updateTimes(char* seconds, char wtoStr [12]){
+bool updateTimes( char* seconds,
+                  char wtoStr [12]){
   
   uint32_t lastTime = RTC.hour*3600 + RTC.minute*60 + RTC.second; //  previous seconds of the day
   uint8_t lastDay = RTC.day;
