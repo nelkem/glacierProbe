@@ -409,29 +409,32 @@ uint8_t DS2::read()
 			counter++;								//	change which variable we are storing into
 			charIdx = 0;
 		}
-		switch(counter)								//	based on counter, store char into specified variable
+		if( c != '\n' )
 		{
-			case 1:
-				windSpeed[charIdx] = c;				//	set the character
-				charIdx ++; 						//	then increment the index and add a null terminator
-				windSpeed[charIdx] = 0;				//	which will be replaced if counter doesn't change
-				break;
+			switch(counter)								//	based on counter, store char into specified variable
+			{
+				case 1:
+					windSpeed[charIdx] = c;				//	set the character
+					charIdx ++; 						//	then increment the index and add a null terminator
+					windSpeed[charIdx] = 0;				//	which will be replaced if counter doesn't change
+					break;
 
-			case 2:
-				windDirection[charIdx] = c;
-				charIdx ++;
-				windDirection[charIdx] = 0;
-				break;
+				case 2:
+					windDirection[charIdx] = c;
+					charIdx ++;
+					windDirection[charIdx] = 0;
+					break;
 
-			case 3:
-				temperature[charIdx] = c;
-				charIdx ++;
-				temperature[charIdx] = 0;
-				break;
+				case 3:
+					temperature[charIdx] = c;
+					charIdx ++;
+					temperature[charIdx] = 0;
+					break;
 
-			default:
-				break;
+				default:
+					break;
 
+			}
 		}
 		bufIdx ++;									//	increment the index of responseBuffer
 	}

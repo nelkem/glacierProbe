@@ -15,7 +15,7 @@ Date:		Aug 7, 2018
 
 #include <WaspSensorAgrXtr.h>
 
-#define DS2_DEBUG 1
+#define DS2_DEBUG 0
 
 class DS2: public WaspSensorAgrXtr
 {
@@ -55,7 +55,5 @@ public:
 
 	uint8_t ON();
 	void OFF();
-
-
 
 };

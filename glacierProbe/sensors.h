@@ -21,8 +21,6 @@ readBME(temperature.val);
 void readAllSensors( keyvalue*);
 void cleanString(char*, uint8_t);
 
-
-
 /*
 readBME()
 
@@ -140,6 +138,10 @@ void readSolar( char* value, uint8_t size)			//	value is the char array that wil
 }
 #endif
 
+#if _DS2 == 1
+DS2 ds2(AGR_XTR_SOCKET_C);
+#endif
+
 
 void readAllSensors( keyvalue* dataArray){
 	#if _BME
@@ -164,7 +166,27 @@ void readAllSensors( keyvalue* dataArray){
 	            dataArray[KV_SOLAR].KEYVAL_STRING_SIZE);
 	#endif
 
-  for(int i = 0; i<6; i++)
+  #if _DS2
+  ds2.ON();
+  ds2.read();
+
+  uint8_t size = dataArray[KV_UBAR].KEYVAL_STRING_SIZE;
+  
+  ds2.get_ubar( dataArray[KV_UBAR].val, size);
+                
+  ds2.get_vbar( dataArray[KV_VBAR].val, size);
+
+  ds2.getGust(  dataArray[KV_GUST].val, size);
+
+  ds2.getWindSpeed(     dataArray[KV_WINDSPEED].val, size);
+
+  ds2.getWindDirection( dataArray[KV_WINDDIRECTION].val, size);
+
+  ds2.getTemperature(   dataArray[KV_DS2TEMPERATURE].val, size);
+  ds2.OFF();
+  #endif
+
+  for(int i = 0; i<NUM_KEYVALS; i++)
   {
     cleanString(dataArray[i].val, sizeof(dataArray[i].val));
   }
@@ -187,7 +209,7 @@ void cleanString(char* str, uint8_t size)
   for(int i = 0; i<size; i++)
   {
     if(started == false){
-      if(str[i] != ' '){
+      if(str[i] != ' ' && str[i] != '\t' && str[i] != '\n'){
         started = true;
         newStr[index] = str[i];
         index++;

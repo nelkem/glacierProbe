@@ -51,17 +51,14 @@ Takes a command character array/string literal and a couple desired answers and 
 the SIM card. This only works with AT commands in the style of "AT+CREG?" or "AT+CREG=0". More
 information on how to use this function is available in the documentation.
 */
-	uint8_t sendMyCommand(char* command);
+	uint8_t sendMyCommand(	char*);
 
-	uint8_t sendMyCommand(char* command,
-						char* ans1);
+	uint8_t sendMyCommand(	char*,
+							char*);
 
-	uint8_t sendMyCommand(char* command,
-						char* ans1);
-
-	uint8_t sendMyCommand(char* command,// AT command to send to SIM
-						char* ans1, 	// Desired answer 1, wi,ll return 1 if this is the response
-						char* ans2); 	// Desired answer 2, will return 2 if this is the response
+	uint8_t sendMyCommand(	char*,	// AT command to send to SIM
+							char*, 	// Desired answer 1, wi,ll return 1 if this is the response
+							char*); 	// Desired answer 2, will return 2 if this is the response
 
 
 /*

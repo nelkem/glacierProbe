@@ -48,14 +48,6 @@ uint8_t my4G::sendMyCommand(char* command,
 }
 
 uint8_t my4G::sendMyCommand(char* command,
-                            char* ans1)
-{
-  this->sendMyCommand(command,	//character array representing the AT command
-                      ans1,		//desired answer1
-                      NULL);		//no desired answer2
-}
-
-uint8_t my4G::sendMyCommand(char* command,
                             char* ans1,
                             char* ans2)
 {
@@ -63,10 +55,10 @@ uint8_t my4G::sendMyCommand(char* command,
 
   USB.printf("Sending %s to SIM....\n", command);
 
-  answer = sendCommand(command, ans1, ans2);               //use UART to send the AT command to the SIM
+  answer = this->sendCommand(command, ans1, ans2);               //use UART to send the AT command to the SIM
 
 
-  USB.printf("Response:\t");
+  USB.print(F("Response:\t"));
   for (int i = 0; i < 512; i++) 
   {
     USB.print((char)_buffer[i]); //print out SIM response
