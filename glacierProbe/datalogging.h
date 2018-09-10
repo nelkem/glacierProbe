@@ -3,7 +3,12 @@
 
 #include "header.h"
 
-
+uint8_t lastDate = 0;
+char SD_filename [16] = {0};
+char FTP_filename [44] = {0};
+#if FTP_UPLOAD_RATE == FTP_UPLOAD_HOURLY
+  uint8_t lastUploadHour = 0;
+#endif
 /*
 setFileNames()
 Updates the SD_filename to correspond with the current date, then updates FTP_filename's filename by
@@ -147,6 +152,9 @@ uint8_t writeDataSet(keyvalue* kvs, uint8_t numPairs, char* filename)
   #endif
 
 
+RTC.setWatchdog(2);
+//********** START 2 SECOND WATCHDOG ***************
+
   //  Step 2: 
   //  initialize the SD card
   if(!SD.ON())                                //  if the SD card fails to turn on
@@ -154,6 +162,8 @@ uint8_t writeDataSet(keyvalue* kvs, uint8_t numPairs, char* filename)
     #if GLACIERPROBE_DEBUG == 1
       USB.println(F("Failed to init SD"));
     #endif
+
+RTC.unSetWatchdog();
     return 2;
   }
 
@@ -190,6 +200,7 @@ uint8_t writeDataSet(keyvalue* kvs, uint8_t numPairs, char* filename)
     #endif
     
     SD.OFF();
+RTC.unSetWatchdog();
     return 3;
   }
 
@@ -205,11 +216,16 @@ uint8_t writeDataSet(keyvalue* kvs, uint8_t numPairs, char* filename)
       USB.println(F("Failed to close directory"));
     #endif
     SD.OFF();
+RTC.unSetWatchdog();
     return 4;
   }
   
   SD.OFF();                                             //  turn of the SD while we don't use it
+  
+//********** END 2 SECOND WATCHDOG *****************
+RTC.unSetWatchdog();
 
+  
   #if GLACIERPROBE_DEBUG == 1
     USB.println(F("SD write completed, directory closed"));
   #endif
@@ -236,20 +252,40 @@ bool updateTimes( char* seconds,
                   char wtoStr [12]){
   
   uint32_t lastTime = (uint32_t) RTC.hour * 3600 + RTC.minute*60 + RTC.second;
+
+RTC.setWatchdog(2);
+//********** START 2 SECOND WATCHDOG ***************
   
   RTC.getTime();                                                  //  update the time variables
   //get the new time
   uint32_t currentTime = (uint32_t) RTC.hour*3600 + RTC.minute*60 + RTC.second;
   sprintf(seconds, "%lu", currentTime);  //  5 chars max, update the seconds character array
 
-  //update the wakeTime interval
+  //update the wakeTime interval. If the battery is low, double the time the device will sleep.
   timestamp_t wto;
-  RTC.breakTimeOffset(DATA_INTERVAL, &wto);
+  uint8_t multiplier = 1;
+  if( battery == BL_MEDIUM )
+  {
+    multiplier = 6;
+  }
+  if( battery == BL_LOW )
+  {
+    multiplier = 20;
+  }
+  if( battery == BL_CRITICAL )
+  {
+    multiplier = 25;
+  }
+  
+  RTC.breakTimeOffset(DATA_INTERVAL * multiplier, &wto);
   
   sprintf_P(wtoStr, PSTR("%.2u:%.2u:%.2u:%.2u"), wto.date, wto.hour, wto.minute, wto.second);
   #if GLACIERPROBE_DEBUG == 1
     USB.printf("lastDATE: %u\tcurrDATE: %u\n",lastDate, RTC.date);
   #endif
+
+//********** END 2 SECOND WATCHDOG *****************
+RTC.unSetWatchdog();
   
   if(RTC.date != lastDate){ 
     lastDate = RTC.date;             
@@ -276,11 +312,15 @@ Returns:
 uint8_t appendUnsentFile()
 {
   
+RTC.setWatchdog(2);
+//********** START 2 SECOND WATCHDOG ***************
+  
   if(!SD.ON())
   {
     #if GLACIERPROBE_DEBUG == 1
       USB.println(F("Failed to init SD"));
     #endif
+RTC.unSetWatchdog();
     return 1;                           //  SD failed to initialize
   }
 
@@ -301,6 +341,7 @@ uint8_t appendUnsentFile()
       USB.println(F("file added to list of unsent files"));
     #endif
     SD.OFF();
+RTC.unSetWatchdog();
     return 0;
   }
 
@@ -308,6 +349,9 @@ uint8_t appendUnsentFile()
     USB.println(F("ERROR: Could not append filename to list of unsent files."));
   #endif
   SD.OFF();
+  
+//********** END 2 SECOND WATCHDOG *****************
+RTC.unSetWatchdog();
   return 2;
   
 }
@@ -330,9 +374,12 @@ Returns:
 
 uint8_t checkUnsentFiles()
 {
+RTC.setWatchdog(8);
+//********** START 8 SECOND WATCHDOG ***************
 
   if(!SD.ON())
   {
+RTC.unSetWatchdog();
     return 1;                           //  SD failed to initialize
   }
 
@@ -360,6 +407,9 @@ uint8_t checkUnsentFiles()
   uint32_t start = millis();
   while ( millis() - start < 60000 )    //  time out if the rest of the operations take longer than a minute
   {
+    
+RTC.setWatchdog(8);                     //  set the watchdog again
+    
     SD.catln(fList, i, 1);              //  read in a line from the file and store it in the SD buffer
     
     #if GLACIERPROBE_DEBUG == 1
@@ -369,6 +419,7 @@ uint8_t checkUnsentFiles()
     
     if( strncmp( SD.buffer, SD_filename, 8 ) == 0 ) //  if the filename is the same as the current day's file, finish
     {
+RTC.unSetWatchdog();
       SD.OFF();
       return 0;
     }
@@ -376,16 +427,19 @@ uint8_t checkUnsentFiles()
     if( strlen( SD.buffer ) == 0 )       // if the SD reads in a blank line, finish
     {
       SD.OFF();
+RTC.unSetWatchdog();
       return 4;
     }
 
-    if( sizeof(FTP_DIR) + strlen(SD.buffer) >= 40 ) //  if adding the filename to the FTP directory would overflow,
+    if( sizeof(FTP_DIR) + strlen(SD.buffer) >= 42 ) //  if adding the filename to the FTP directory would overflow,
     {                                               //  an error occurred (such as corrupt data)
       SD.OFF();
+RTC.unSetWatchdog();
       return 2;
     }
-
-    if( SD.buffer[0] != '*')             // if the file hasn't been sent previously
+    
+    if( SD.buffer[0] != '*' &&  //  if the file hasn't been sent previously
+        battery > BL_LOW )      //  and the battery isn't low
     {
       //  get the FTP directory using the filename of the first unsent file
       char FTP_dir [40] = { 0 };
@@ -406,20 +460,75 @@ uint8_t checkUnsentFiles()
         USB.print(F("Length of fname: "));
         USB.println(strlen(sd_fname));
       #endif
-      //  attempt to send the file to the FTP server
-      if ( comms.postFTP(FTP_SERVER, FTP_PORT, FTP_USER, FTP_PASS, sd_fname, FTP_dir) == 1 )
+      if( battery == BL_HIGH )
+      {
+        
+RTC.unSetWatchdog();    //  comms.postFTP has its own timeout and will always take longer than 8 seconds.
+
+        
+        //  attempt to send the file to the FTP server
+        if ( comms.postFTP(FTP_SERVER, FTP_PORT, FTP_USER, FTP_PASS, sd_fname, FTP_dir) == 1 )
+        {
+          #if GLACIERPROBE_DEBUG == 1
+            USB.println(F("Upload complete, marking file as sent."));
+          #endif
+
+          markSentFile(sd_fname);  //  mark file as sent
+        }
+      }
+      else
       {
         #if GLACIERPROBE_DEBUG == 1
-          USB.println(F("Upload complete, marking file as sent."));
+          USB.println(F("Battery level too low for FTP upload"));
         #endif
-        markSentFile(sd_fname);  //  mark file as sent
       }
     }
 
     i++;                              //  increment to the next line
   }
+
+  #if ( FTP_UPLOAD_RATE == FTP_UPLOAD_HOURLY  )
+  if (  battery == BL_HIGH  )
+  {
+    if( RTC.hour != lastUploadHour  )
+    {
+      #if GLACIERPROBE_DEBUG == 1
+        USB.println(F("Attempting hourly upload."));
+      #endif
+
+RTC.setWatchdog(2);
+//********** RESTART 2 SECOND WATCHDOG ***************
+
+      if( comms.postFTP(FTP_SERVER, FTP_PORT, FTP_USER, FTP_PASS, sd_fname, FTP_dir) == 1 )
+      {
+        #if GLACIERPROBE_DEBUG == 1
+          USB.println(F("Hourly upload complete."));
+        #endif
+        lastUploadHour = RTC.hour;
+      }
+      else
+      {
+        #if GLACIERPROBE_DEBUG == 1
+          USB.println(F("Hourly upload failed."));
+        #endif
+      }
+//********** END 2 SECOND WATCHDOG *****************
+RTC.unSetWatchdog();
+
+    }
+  }
+  else
+  {
+    #if GLACIERPROBE_DEBUG == 1
+      USB.println(F("Battery too low for hourly upload."));
+    #endif
+  }
+  #endif
   
   SD.OFF();
+  
+//********** END WATCHDOG *****************
+RTC.unSetWatchdog();
   return 3;                           //  timeout condition was met
 }
 
@@ -439,6 +548,9 @@ Returns:
 uint8_t markSentFile(char* fname)
 {
 
+RTC.setWatchdog(2);
+//********** START 2 SECOND WATCHDOG ***************
+
   // get the name of the list of sent files
   char fList [20] = {0};
   strcpy_P(fList, UNSENT_FILES_NAME );
@@ -456,8 +568,13 @@ uint8_t markSentFile(char* fname)
     #if GLACIERPROBE_DEBUG == 1
       USB.println(F("Failed to mark file"));
     #endif
+RTC.unSetWatchdog();
     return 2;
   }
+
+//********** END 2 SECOND WATCHDOG *****************
+RTC.unSetWatchdog();
+
   return 0; // if the file was successfully marked as sent
 }
 

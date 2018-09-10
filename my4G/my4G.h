@@ -30,6 +30,16 @@ onboard SD card and extracted when it is time to send data over 4G.
 
 #define DEBUG_MY4G	1
 
+#define SMS_CMD_DATA 		0
+#define SMS_CMD_TIME 		1
+#define SMS_CMD_SIGNAL		2
+#define SMS_CMD_RESET		3
+#define SMS_CMD_SETTIME		4
+#define SMS_CMD_BATTERY		5
+
+#define NUM_SMS_CMDS		6
+
+
 
 /*
 Simple class for some custom functions for the 4G class, rather than inserting them directly
@@ -85,6 +95,14 @@ Takes ftp settings, the filename stored on the SD card, and the server file to p
 						char* serverFile);
 
 	void serialCommandMode();
+
+	//int8_t readSMSCommand();
+
+	//int8_t parseSMSCommand(char*);
+
+	int8_t receiveDweetCommand(char*);
+
+	int8_t parseDweetResponse();
 
 };
 

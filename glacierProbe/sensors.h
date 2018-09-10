@@ -41,12 +41,18 @@ void readBME( char* value1,				//	character arrays the function stores the measu
 	memset( value2, 0, size);
 	memset( value3, 0, size);
 
+  RTC.setWatchdog(2);
+  //********** START 2 SECOND WATCHDOG ***************
+  
 //	start up the sensor, wait a bit, and then grab the t, h, and p readings as floats.
 	bme280.ON();
 	float t = bme280.getTemperature();
 	float h = bme280.getHumidity();
 	float p = bme280.getPressure();
 	bme280.OFF();
+ 
+  //********** END 2 SECOND WATCHDOG *****************
+  RTC.unSetWatchdog();
 
 //	convert the floats to 10-byte-wide, 3-decimal-place character arrays and store them in
 //	the designated character arrays.
@@ -72,10 +78,15 @@ void readSonic( char* value, uint8_t size)			//	value is the char array that wil
 {			
 	memset( value, 0, size);	                    //	clears the array before storing data
 
-//	start up the sensor, wait a bit, then grab the distance measurement as an unsigned integer
+  RTC.setWatchdog(2);
+//********** START 2 SECOND WATCHDOG ***************
+
 	sonic.ON();
 	uint16_t d = sonic.getDistance();
 	sonic.OFF();
+  
+//********** END 2 SECOND WATCHDOG *****************
+  RTC.unSetWatchdog();
 
 //	convert the unsigned integer to a character array and store it in value
 	snprintf(value, 10, "%u", d);
@@ -99,11 +110,17 @@ void readPhytos( char* value, uint8_t size)			//	value is the char array that wi
 {
 	memset( value, 0, size);	//	clears the array before storing data
 
+  RTC.setWatchdog(2);
+//********** START 2 SECOND WATCHDOG ***************
+
 //	start up the sensor, wait a bit, then take a measurement. The wetness is stored as a member of
 //	the object, rather than being returned.
 	phytos.ON();
 	phytos.read();
 	phytos.OFF();
+ 
+//********** END 2 SECOND WATCHDOG *****************
+  RTC.unSetWatchdog();
 
 	float w = phytos.wetness;			//	grab the wetness from the member variable of the object
 	dtostrf(w, 10, 3, value);			//	convert the float to a character array and store it in value
@@ -127,11 +144,17 @@ void readSolar( char* value, uint8_t size)			//	value is the char array that wil
 {
 	memset( value, 0, size);	//	clears the array before storing data
 
+  RTC.setWatchdog(2);
+  //********** START 2 SECOND WATCHDOG ***************
+
 //	start up the sensor, wait a bit, then take a measurement. The radiation is stored as a member of
 //	the object, rather than being returned.
 	solar.ON();
 	solar.read();
 	solar.OFF();
+
+  //********** END 2 SECOND WATCHDOG *****************
+  RTC.unSetWatchdog();
 
 	float r = solar.radiationVoltage;			//	grab the radiation from the member variable of the object
 	dtostrf(r, 10, 3, value);			//	convert the float to a character array aand store it in value
@@ -144,46 +167,69 @@ DS2 ds2(AGR_XTR_SOCKET_C);
 
 
 void readAllSensors( keyvalue* dataArray){
+
+  
 	#if _BME
+  if ( battery > BL_CRITICAL )
+  {
 	readBME(dataArray[KV_TEMPERATURE].val, 
 			    dataArray[KV_HUMIDITY].val, 
 			    dataArray[KV_PRESSURE].val,
 			    dataArray[KV_TEMPERATURE].KEYVAL_STRING_SIZE);
+  }
 	#endif
 
 	#if _SONIC
+  if ( battery > BL_LOW )
+  {
 	readSonic(  dataArray[KV_SONIC].val,
 	            dataArray[KV_SONIC].KEYVAL_STRING_SIZE);
+  }
 	#endif
 
 	#if _PHYTOS
+  if (battery > BL_CRITICAL )
+  {
 	readPhytos( dataArray[KV_WETNESS].val,
 	            dataArray[KV_WETNESS].KEYVAL_STRING_SIZE);
+  }
 	#endif
 
 	#if _SOLAR
+  if (battery > BL_CRITICAL )
 	readSolar(  dataArray[KV_SOLAR].val,
 	            dataArray[KV_SOLAR].KEYVAL_STRING_SIZE);
 	#endif
 
   #if _DS2
-  ds2.ON();
-  ds2.read();
-
-  uint8_t size = dataArray[KV_UBAR].KEYVAL_STRING_SIZE;
+  if( battery > BL_LOW )
+  {
+    RTC.setWatchdog(8);
+    //********** START 8 SECOND WATCHDOG ***************
+    
+    ds2.ON();
+    delay(2000);
+    ds2.read();
   
-  ds2.get_ubar( dataArray[KV_UBAR].val, size);
-                
-  ds2.get_vbar( dataArray[KV_VBAR].val, size);
+    uint8_t size = dataArray[KV_UBAR].KEYVAL_STRING_SIZE;
+    
+    ds2.get_ubar( dataArray[KV_UBAR].val, size);
+                  
+    ds2.get_vbar( dataArray[KV_VBAR].val, size);
+  
+    ds2.getGust(  dataArray[KV_GUST].val, size);
+  
+    ds2.getWindSpeed(     dataArray[KV_WINDSPEED].val, size);
+  
+    ds2.getWindDirection( dataArray[KV_WINDDIRECTION].val, size);
+  
+    ds2.getTemperature(   dataArray[KV_DS2TEMPERATURE].val, size);
+    ds2.OFF();
 
-  ds2.getGust(  dataArray[KV_GUST].val, size);
-
-  ds2.getWindSpeed(     dataArray[KV_WINDSPEED].val, size);
-
-  ds2.getWindDirection( dataArray[KV_WINDDIRECTION].val, size);
-
-  ds2.getTemperature(   dataArray[KV_DS2TEMPERATURE].val, size);
-  ds2.OFF();
+    //********** END 8 SECOND WATCHDOG ***************
+    
+    RTC.unSetWatchdog();
+  }
   #endif
 
   for(int i = 0; i<NUM_KEYVALS; i++)

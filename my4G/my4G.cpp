@@ -11,6 +11,30 @@
 #include "my4G.h" //check this file for descriptions of functions
 #include <inttypes.h>
 
+
+const char SMS_CMD_0 [] PROGMEM = "DATA!";
+const char SMS_CMD_1 [] PROGMEM = "TIME!";
+const char SMS_CMD_2 [] PROGMEM = "SIGNAL!";
+const char SMS_CMD_3 [] PROGMEM = "RESET!";
+const char SMS_CMD_4 [] PROGMEM = "SETTIME!";
+const char SMS_CMD_5 [] PROGMEM = "BATTERY!";
+
+const char* const SMS_CMD_TBL [] PROGMEM = 
+{
+	SMS_CMD_0,
+	SMS_CMD_1,
+	SMS_CMD_2,
+	SMS_CMD_3,
+	SMS_CMD_4,
+	SMS_CMD_5
+};
+
+const char DWEET_GET_BASE [] PROGMEM = "/get/latest/dweet/for/%s";
+const char DWEET_RCV [] PROGMEM =      "AT#HTTPRCV=0\r";
+
+
+
+
 my4G::my4G(char* apn, char* login, char* password) 
 {
   this->set_APN(apn, login, password);
@@ -93,10 +117,10 @@ Returns:
 - 
 ***************************************************************************************************************/
 uint8_t my4G::sendDweet(	uint16_t port,
-                          char* name,
-                          uint8_t size,
-                          keyvalue* data,
-                          uint8_t numPairs)
+                          	char* name,
+                          	uint8_t size,
+                          	keyvalue* data,
+                          	uint8_t numPairs)
 {
   char resource [64];                                    // init a blank character array to store the url
   memset(resource, 0, sizeof(resource));
@@ -125,9 +149,8 @@ uint8_t my4G::sendDweet(	uint16_t port,
     We need to create the character array for the data. Since we've stored the current
     data measurements in an array of keyvalue object pointers, theres some manipulation involved.
   */
-  const uint8_t DATALENGTH = 256;
-  char dataString [DATALENGTH];						                     // the data string to pass to the http() function.
-  memset(dataString, 0, sizeof(dataString));	           //	clear dataString.
+  uint8_t DATALENGTH = 255;
+  char dataString [DATALENGTH] = {0};	           //	clear dataString.
   uint8_t len = 0; 							                         //	used length of data string
   uint8_t pair = 0;							                       //	current keyvalue pair in array
 
@@ -173,7 +196,7 @@ uint8_t my4G::sendDweet(	uint16_t port,
       len++;
     }
   }
-  if(len>256){
+  if(len>254){
     USB.println(F("Data too long."));
     return 129;
   }
@@ -182,7 +205,13 @@ uint8_t my4G::sendDweet(	uint16_t port,
     Now we can Dweet the data by calling Wasp4G's function for posting http urls.
   */
   USB.println(F("POSTING"));
-  USB.printf("Resource: %s,\tdataString: %s\n",resource,dataString);
+  USB.printf("Length of DSTRING: %u\n", (unsigned) strlen(dataString));
+  USB.printf("Resource: %s,\tdataString: ",resource);
+  for(uint8_t i = 0; i<strlen(dataString); i++)
+  {
+    USB.print(dataString[i]);
+  }
+  USB.println();
   char host [] = "dweet.io";
   uint8_t postError;
 
@@ -195,6 +224,7 @@ uint8_t my4G::sendDweet(	uint16_t port,
                         dataString);		    //	data
 
   this->OFF();
+  USB.printf("Post Error: %u\n",postError);
   return postError;							            //	between 0 and 27. 0 means OK.
   
 
@@ -274,31 +304,211 @@ Returns: none
 ***************************************************************************************************************/
 
 void my4G::serialCommandMode(){
-  char cmd_buffer [50] = {};
+  char cmd_buffer [100] = {};
   uint8_t buff_index = 0;
   
   while(true)                                                 //  loop until we force an exit
   {
-    USB.print(F("Enter 'q' to quit"));
+    USB.println(F("\nEnter 'q' to quit"));
     USB.print(F("COMMAND: "));
+    USB.flush();
+    while(!USB.available());
+    buff_index = 0;
 
-    memcpy(cmd_buffer,0,sizeof(cmd_buffer));                  //  clear the command buffer
-    while(USB.available() && buff_index < sizeof(cmd_buffer)) //  if there are characters left in the CMD
+    memset(cmd_buffer,0,sizeof(cmd_buffer));                  //  clear the command buffer
+    while(USB.available() && buff_index < sizeof(cmd_buffer) - 3) //  if there are characters left in the CMD
     {
       cmd_buffer[buff_index] = USB.read();                    //  copy the byte to the command buffer
 
-      if( cmd_buffer[buff_index] == 'q' ||                    //  exit conditions, return from function
-          cmd_buffer[buff_index] == 'Q')
+      if( cmd_buffer[0] == 'q' ||                    //  exit conditions, return from function
+          cmd_buffer[0] == 'Q')
       {
+        USB.flush();
         return;
       }
 
       buff_index++;
     }
+    USB.flush();
     USB.println(cmd_buffer);
-
+    USB.printf("idx strlen: %c", cmd_buffer[strlen(cmd_buffer)]);
+    cmd_buffer[ strlen(cmd_buffer) ] = '\r';
+    cmd_buffer[ strlen(cmd_buffer) + 1] = 0;
     this->sendMyCommand(cmd_buffer);
   }
+}
+
+
+// int8_t my4G::readSMSCommand()
+// { 
+  
+//   this->configureSMS();
+//   int8_t response = 0;
+//   uint8_t index = 1;
+//   uint8_t a = 0;
+//   int8_t b = this->readNewSMS(30000);
+//   USB.printf("New SMS Response: %u\n",b);
+//   while( a == 0)
+//   {
+//     a = readSMS(index);
+//     USB.printf("Read: %u.\t Response: %u.\n", index, a);
+
+//     index++;
+//   }
+
+// 	if( readSMS( 1 ) == 0 )
+// 	{
+//     USB.println(F("Successfully read SMS....."));
+   
+// 		char sms_cmd_buffer [10];
+// 		char c = _buffer[0];
+// 		uint16_t i = 0;
+// 		while(c != 0 && c != '*')
+// 		{
+// 			i++;
+// 			c = _buffer[i];
+// 		}
+
+// 		i++;
+// 		int j = 0;
+// 		while( 	j < sizeof(sms_cmd_buffer) - 1 && 
+// 				c != '!')
+// 		{
+// 			c = _buffer[i];
+// 			sms_cmd_buffer[j] = c;
+// 			i++;
+// 			j++;
+// 		}
+// 		sms_cmd_buffer[j] = 0;
+    
+//     response = parseSMSCommand(sms_cmd_buffer);
+//     deleteSMS(1,1);
+//     return response;
+// 	}
+//   USB.print(F("Buffer: "));
+
+//   for(int i = 0; i< sizeof(this->_buffer); i++)
+//   {
+//     USB.print(_buffer[i]);
+//   }
+//   this->deleteSMS(1);
+//   USB.println();
+// 	return -2;
+
+// }
+
+
+
+
+/**************************************************************************************************************
+parseSMSCommand()
+Cycles through the PROGMEM string list of acceptable commands and compares it to the given string. Returns the 
+index of the command if it is found.
+
+Parameters:
+- char* sms_cmd: the command to parse
+Returns: index of command if it is valid, otherwise returns -1.
+***************************************************************************************************************/
+
+
+// int8_t my4G::parseSMSCommand(char* sms_cmd)
+// {
+
+// 	for(uint8_t i = 0; i < NUM_SMS_CMDS; i++)
+// 	{
+
+// 		uint8_t len = min(strlen(sms_cmd),strlen_P(SMS_CMD_TBL[i]));
+// 		int cmp = strncmp_P(sms_cmd, SMS_CMD_TBL[i], len);
+
+// 		if ( cmp == 0 )
+// 		{
+// 			return i;
+// 		}
+
+// 	}
+
+// 	return -1;
+// }
+
+
+int8_t my4G::receiveDweetCommand(char* name)
+{
+  char command_buffer[60] = { 0 };
+  char rsc [50] = { 0 };
+
+  this->checkDataConnection(20000);
+  //  AT#HTTPCFG=0,<url>,<port>
+  snprintf_P( command_buffer,
+              sizeof(command_buffer),
+              table_HTTP[0],
+              "dweet.io",
+              80);
+
+  this->sendMyCommand(command_buffer);
+
+
+  //  "/get/latest/dweet/for/<name>""
+  snprintf_P( rsc,
+              sizeof(rsc),
+              DWEET_GET_BASE,
+              name);
+
+  memset(command_buffer,0,sizeof(command_buffer));
+
+  //  AT#HTTPQRY=0,<mode=0>,<resource>
+  snprintf_P( command_buffer,
+              sizeof(command_buffer),
+              table_HTTP[1],
+              0,
+              rsc);
+  this->sendMyCommand(command_buffer);
+
+
+  memset(command_buffer,0,sizeof(command_buffer));
+
+  //  AT#HTTPRCV=0
+  strcpy_P(command_buffer,DWEET_RCV);
+
+  this->sendMyCommand(command_buffer);
+
+  int8_t response = parseDweetResponse();
+
+  return response;
+
+}
+
+int8_t my4G::parseDweetResponse()
+{
+  uint16_t index = 0;
+  char c = _buffer[0];
+  uint8_t strsize;
+
+  USB.println(F("Parsing response..."));
+
+  while( c != '$' && c != 0 )
+  {
+    USB.print(c);
+    c = _buffer[index];
+    index++;
+  }
+
+  for(uint8_t i = 0; i < NUM_SMS_CMDS; i++)
+  {
+
+    //  compare the following sequence of characters up to the length of
+    //  the command. If they are the same, that command's index is returned.
+
+    strsize = strlen_P( (char*) pgm_read_word( &( SMS_CMD_TBL[i]) ) );
+    int cmp = strncmp_P( (char*) ( this->_buffer + index ) , (char*) pgm_read_word( &(SMS_CMD_TBL[i]) ), strsize );
+
+    USB.println(cmp);
+    if ( cmp == 0 )
+    {
+      return i;
+    }
+
+  }
+  return -1;
 }
 
 
