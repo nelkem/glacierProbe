@@ -289,8 +289,7 @@ RTC.unSetWatchdog();
   
   if(RTC.date != lastDate){ 
     lastDate = RTC.date;             
-    return 1;                            //  the day changed
-                
+    return 1;                            //  the day changed            
   }
 
   return 0;                              // the day didn't change
